@@ -1,0 +1,2328 @@
+class ZCL_PRV_BG_INFO definition
+  public
+  final
+  create public .
+
+public section.
+
+  types:
+    BEGIN OF ty_mapping,
+        mark       TYPE char1,
+        job_name   TYPE btcjob,
+        progn      TYPE programm,
+        variant    TYPE covaritxt,
+        withcon    TYPE boole_d,
+        subject	   TYPE text50,
+        attachment TYPE text30,
+        mails      TYPE char1024,
+        content    TYPE icle_document_content,
+      END OF  ty_mapping .
+  types:
+    typ_mapping TYPE STANDARD TABLE OF ty_mapping .
+
+  constants GC_OK type SY-UCOMM value 'OK' ##NO_TEXT.
+  constants GC_CANCEL type SY-UCOMM value 'CANCEL' ##NO_TEXT.
+  constants GC_DISP type SY-UCOMM value 'DISP' ##NO_TEXT.
+  constants GC_BACK type SY-UCOMM value 'BACK' ##NO_TEXT.
+  constants GC_EXIT type SY-UCOMM value 'EXIT' ##NO_TEXT.
+  data GI_MAIL type ZCL_PRV_OLE_PRO=>TYP_MAILS .
+  data GI_MAPPING type TYP_MAPPING .
+  constants GC_CONTENT type SY-UCOMM value 'CONTENT' ##NO_TEXT.
+  constants GC_MAILS type SY-UCOMM value 'MAILS' ##NO_TEXT.
+  constants GC_DELETE type SY-UCOMM value 'DELETE' ##NO_TEXT.
+  constants GC_ADD type SY-UCOMM value 'ADD' ##NO_TEXT.
+  constants GC_ACTIVATE type SY-UCOMM value 'ACTIVATE' ##NO_TEXT.
+  constants GC_DEACTIVATE type SY-UCOMM value 'DEACTIVATE' ##NO_TEXT.
+
+  methods DISPLAY_JOBS
+    importing
+      !IV_JOB_NAME type BTCJOB
+      !IV_DATE type DATUM
+      !IV_USER type XUBNAME
+      !IV_PROGRAM type PROGNAME .
+  methods GET_SELECTED_SPOOL
+    exporting
+      !EV_SPOOL type RSPOID
+      !EV_PROGNAME type PROGNAME
+      !EV_JOB_NAME type BTCJOB
+    exceptions
+      NOT_SELECTED .
+  methods DISPLAY_SPOOL_DATA
+    importing
+      !IV_SPOOL type RSPOID
+      !IV_PROGRAM type PROGNAME
+      !IV_JOB_NAME type BTCJOB
+    exceptions
+      SPOOL_ERROR
+      NO_RECORDS_FOUND .
+  methods FREE_OUTPUT .
+  methods INIT_MAPPING .
+  methods INIT_MAILS
+    importing
+      !IV_READ type I .
+  methods FREE_MAPPING .
+  methods FREE_MAIL .
+  methods INIT_CONTENT
+    importing
+      !IV_READ type I .
+  methods FREE_CONTENT .
+  methods DISPLAY_JOB_F4
+    exporting
+      !EV_JOB type SHVALUE_D .
+  methods DISPLAY_PROGRAM_F4
+    importing
+      !IV_JOB_NAME type BTCJOB
+    exporting
+      !EV_PROGRAM type SHVALUE_D
+    exceptions
+      NO_JOB_FOUND .
+  methods DISPLAY_F4_VARIANT
+    importing
+      !IV_JOB_NAME type BTCJOB
+      !IV_PROGRAM type PROGRAMM
+    exporting
+      !EV_VARIANT type SHVALUE_D
+    exceptions
+      NO_JOB_FOUND
+      NO_PROGRAM_FOUND .
+  methods UPDATE_CONTENT
+    importing
+      !IV_READ type I .
+  methods UPDATE_MAILS
+    importing
+      !IV_READ type I .
+  methods UPDATE_MAPPING
+    exceptions
+      NO_UPDATE_FOUND
+      NO_MAIL_FOUND .
+  methods ACTIVATE_BG_JOB
+    importing
+      !IV_TIME type SYST_UZEIT
+    exceptions
+      JOB_ALREADY_ACTIVATED
+      PROGRAM_NOT_FOUND .
+  methods DEACTIVATE_BG_JOB
+    exceptions
+      JOB_NOT_STARTED .
+  methods GET_MAPPING_INFORAMTION
+    exceptions
+      NO_MAPPING_FOUND .
+  methods MAIL_MAPPINGS .
+protected section.
+private section.
+
+  types:
+    BEGIN OF ty_job_details,
+      jobname   TYPE btcjob,
+      jobcount  TYPE btcjobcnt,
+      progname  TYPE btcprog,
+      reluname  TYPE btcrelnm,
+      listident TYPE btclistid,
+      papart    TYPE rspopapart,
+    END OF  ty_job_details .
+  types:
+    typ_job_details TYPE STANDARD TABLE OF ty_job_details .
+  types:
+    BEGIN OF ty_fields,
+      fname    TYPE fieldname,
+      ftext    TYPE lvc_txtcol,
+      rollname TYPE rollname,
+    END OF  ty_fields .
+  types:
+    typ_fields TYPE STANDARD TABLE OF ty_fields .
+  types:
+    typ_buffer TYPE STANDARD TABLE OF msscollist .
+  types:
+    typ_bg_map TYPE STANDARD TABLE OF zprv_bg_map .
+
+  data GI_JOB_DETAILS type TYP_JOB_DETAILS .
+  data GO_CONTAINER type ref to CL_GUI_CUSTOM_CONTAINER .
+  data GO_JALV type ref to CL_GUI_ALV_GRID .
+  constants GC_CONTAINER type CHAR20 value 'CO_DISPAY' ##NO_TEXT.
+  data GI_FCAT type LVC_T_FCAT .
+  data GI_FIELDS type TYP_FIELDS .
+  constants GC_FIELD_NAME type CHAR5 value 'FIELD' ##NO_TEXT.
+  data GO_SPOOL_ALV type ref to CL_GUI_ALV_GRID .
+  data GI_DFCAT type LVC_T_FCAT .
+  data GO_TABLE type ref to DATA .
+  constants GC_COLOR_COL type FIELDNAME value 'PRV_COLOR' ##NO_TEXT.
+  data GO_WA type ref to DATA .
+  data GO_OLE type ref to ZCL_PRV_OLE_PRO .
+  data GI_BG_MAP type TYP_BG_MAP .
+  data GO_TEXT type ref to CL_GUI_TEXTEDIT .
+  data GO_TEX_CON type ref to CL_GUI_CUSTOM_CONTAINER .
+  constants GC_CO_CONTENT type CHAR20 value 'CO_CONTENT' ##NO_TEXT.
+  constants GC_BG_JOB_NAME type BTCJOB value 'ZPRV_BG_OLE_PRO' ##NO_TEXT.
+  constants GC_PROCESS_PROGM type PROGNAME value 'ZPRV_BG_OLE_PRO' ##NO_TEXT.
+  data GI_FALSE_FCAT type LVC_T_FCAT .
+  data GV_VALUE_INDEX type I .
+  data GO_DUMMY_TABLE type ref to DATA .
+  constants GC_TIME type ROLLNAME value 'ERZET' ##NO_TEXT.
+  constants GC_DATE type ROLLNAME value 'DATUM' ##NO_TEXT.
+
+  methods GET_JOB_INFORMATION
+    importing
+      !IV_JOB_NAME type BTCJOB
+      !IV_DATE type DATUM
+      !IV_USER type XUBNAME
+      !IV_PROGRAM type PROGNAME
+    exceptions
+      NOT_FOUND .
+  methods GENERATE_JOB_FCAT .
+  methods GET_SPOOL_DATA
+    importing
+      !IV_SPOOL type RSPOID
+    exporting
+      !ET_BUFFER type TYP_BUFFER
+      !EV_PAGE type I
+    exceptions
+      SPOOL_ERROR .
+  methods GET_FIELDS
+    importing
+      !IV_SPOOL_DATA type MSSCOLLIST .
+  methods GET_NUMBER_OF_RECS
+    importing
+      !IV_SPOOL type MSSCOLLIST
+    returning
+      value(RV_RECS) type I .
+  methods CREATE_TABLE
+    exporting
+      !EO_TABLE type ref to DATA .
+  methods CREATE_DYNAMIC_FCAT
+    importing
+      !IV_SPOOL type MSSCOLLIST .
+  methods IS_DATE
+    importing
+      !IV_VALUE type ANY
+    exporting
+      !EV_DATE type DATUM
+      value(EV_TRUE) type BOOLE_D .
+  methods IS_TIME
+    importing
+      !IV_VALUE type ANY
+    exporting
+      !EV_TIME type SYST_UZEIT
+      !EV_TRUE type BOOLE_D .
+  methods INSERT_DATA
+    importing
+      !IT_BUFFER type TYP_BUFFER
+      !IV_PAGE type I
+      !IV_TO type I optional .
+  methods DISPLAY_F4
+    importing
+      !IV_FIELD type FIELDNAME
+      !IT_TABLE type STANDARD TABLE
+    exporting
+      !EV_VALUE type SHVALUE_D .
+  methods FREE_COLOR_COLUMN .
+  methods GET_CONTENT
+    importing
+      !IV_READ type I
+    exporting
+      !IT_CONTENT type ZCL_PRV_OLE_PRO=>TYP_MAIL_CONTENT .
+  methods GET_FIELDS_INDEX
+    importing
+      !IT_BUFFER type TYP_BUFFER
+    exporting
+      value(EV_FIELD_INDEX) type I
+      !EV_VALUE_INDEX type I .
+  methods IS_FLOATING
+    importing
+      !IV_VALUE type ANY
+    exporting
+      !EV_VALUE type BOOLE_D .
+  methods IS_INTEGER
+    importing
+      !IV_VALUE type ANY
+    exporting
+      !EV_VALUE type BOOLE_D .
+  methods IS_CURRENCY
+    importing
+      !IV_VALUE type ANY
+    exporting
+      !EV_VALUE type BOOLE_D .
+  methods CREATE_DUMMY_FCAT
+    importing
+      !IV_SPOOL type MSSCOLLIST .
+  methods CREATE_DUMMY_TABLE
+    exporting
+      !EO_TABLE type ref to DATA .
+  methods CREATE_MAIN_FCAT .
+ENDCLASS.
+
+
+
+CLASS ZCL_PRV_BG_INFO IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PRV_BG_INFO->ACTIVATE_BG_JOB
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_TIME                        TYPE        SYST_UZEIT
+* | [EXC!] JOB_ALREADY_ACTIVATED
+* | [EXC!] PROGRAM_NOT_FOUND
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD activate_bg_job.
+*    GC_BG_JOB_NAME
+    CONSTANTS: lc_pgmid  TYPE pgmid VALUE 'R3TR',
+               lc_object TYPE trobjtype VALUE 'PROG',
+               lc_f      TYPE btcpstatus VALUE 'P', "Scenduled
+               lc_p      TYPE btcpstatus VALUE 'F'. " Finished
+
+    DATA: lw_job       TYPE ty_job_details,
+          lv_btcjobcnt TYPE btcjobcnt,
+          lv_info      TYPE i,
+          lw_tbtcjob   TYPE tbtcjob,
+          li_tbtcstep  TYPE STANDARD TABLE OF tbtcstep,
+          lw_tbtcstep  TYPE tbtcstep,
+          lw_tbtcstrt  TYPE tbtcstrt,
+          lv_release   TYPE btcchar1,
+          lv_date      TYPE datum.
+
+    SELECT SINGLE obj_name FROM tadir
+                    INTO @DATA(lv_name)
+                    WHERE pgmid EQ @lc_pgmid
+                    AND   object EQ @lc_object
+                    AND   obj_name EQ @gc_process_progm.
+    IF sy-subrc NE 0.
+      RAISE program_not_found.
+    ENDIF.
+
+    SELECT SINGLE o~jobname o~jobcount p~progname o~reluname p~listident p~paart FROM tbtco AS o
+                                INNER JOIN tbtcp AS p
+                                ON o~jobname EQ p~jobname
+                                AND o~jobcount EQ p~jobcount
+                                INTO lw_job
+                                WHERE o~jobname EQ gc_bg_job_name
+                                AND   p~progname EQ gc_process_progm
+                                AND   p~status EQ lc_f.
+    IF sy-subrc EQ 0.
+      RAISE job_already_activated.
+    ENDIF.
+    CALL FUNCTION 'JOB_OPEN'
+      EXPORTING
+        jobname          = gc_bg_job_name
+      IMPORTING
+        jobcount         = lv_btcjobcnt
+        info             = lv_info
+      EXCEPTIONS
+        cant_create_job  = 1
+        invalid_job_data = 2
+        jobname_missing  = 3
+        OTHERS           = 4.
+    IF sy-subrc EQ 0.
+      CALL FUNCTION 'JOB_SUBMIT'
+        EXPORTING
+          authcknam               = sy-uname
+          jobcount                = lv_btcjobcnt
+          jobname                 = gc_bg_job_name
+          language                = sy-langu
+          report                  = gc_process_progm
+        EXCEPTIONS
+          bad_priparams           = 1
+          bad_xpgflags            = 2
+          invalid_jobdata         = 3
+          jobname_missing         = 4
+          job_notex               = 5
+          job_submit_failed       = 6
+          lock_failed             = 7
+          program_missing         = 8
+          prog_abap_and_extpg_set = 9
+          OTHERS                  = 10.
+      IF sy-subrc EQ 0.
+        lv_date = sy-datum.
+        CALL FUNCTION 'JOB_CLOSE'
+          EXPORTING
+            event_periodic       = abap_true
+            jobcount             = lv_btcjobcnt
+            jobname              = gc_bg_job_name
+            prddays              = '001'
+            sdlstrtdt            = lv_date
+            sdlstrttm            = iv_time
+*           strtimmed            = abap_true
+          IMPORTING
+            job_was_released     = lv_release
+          EXCEPTIONS
+            cant_start_immediate = 1
+            invalid_startdate    = 2
+            jobname_missing      = 3
+            job_close_failed     = 4
+            job_nosteps          = 5
+            job_notex            = 6
+            lock_failed          = 7
+            invalid_target       = 8
+            invalid_time_zone    = 9
+            OTHERS               = 10.
+        IF sy-subrc <> 0.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PRV_BG_INFO->CREATE_DUMMY_FCAT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_SPOOL                       TYPE        MSSCOLLIST
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD create_dummy_fcat.
+    DATA: lv_true TYPE boole_d,
+          lw_fcat TYPE lvc_s_fcat.
+    CONSTANTS: lc_char TYPE datatype_d VALUE 'CHAR'.
+    REFRESH: gi_false_fcat.
+
+    DATA(lv_len) = strlen( iv_spool ).
+    DATA: lv_str     TYPE string,
+          lv_one     TYPE char1,
+          lv_current TYPE i,
+          lv_now     TYPE i,
+          lv_read    TYPE i,
+          lv_index   TYPE i,
+          lv_space   TYPE boole_d.
+    lv_len = lv_len - 1.
+    lv_read = 1.
+    lv_now = 0.
+    lv_index =  1.
+    DO lv_len TIMES.
+      IF sy-index GT 1.
+        lv_one = iv_spool+lv_now(lv_read).
+        IF lv_one EQ '|'.
+          SELECT rollname FROM dd04l
+                          INTO @DATA(lv_rollname)
+                          WHERE datatype EQ @lc_char
+                          AND   leng EQ @lv_current
+                          AND   rollname LIKE 'CHAR%'.
+            EXIT.
+          ENDSELECT.
+          READ TABLE gi_fields INTO DATA(lw_fields) INDEX lv_index.
+          IF sy-subrc EQ 0.
+            lw_fields-rollname = lv_rollname.
+            MODIFY gi_fields FROM lw_fields INDEX lv_index.
+            SHIFT lw_fields-ftext LEFT DELETING LEADING space.
+            lw_fcat-col_pos       = lv_index.
+            lw_fcat-outputlen     = lv_current.
+            lw_fcat-fieldname     = lw_fields-fname.
+            lw_fcat-rollname      = lw_fields-rollname.
+            lw_fcat-coltext       = lw_fields-ftext.
+            lw_fcat-scrtext_m     = lw_fields-ftext.
+            lw_fcat-scrtext_l     = lw_fields-ftext.
+            lw_fcat-scrtext_l     = lw_fields-ftext.
+            lw_fcat-tooltip       = lw_fields-ftext.
+            APPEND lw_fcat TO gi_false_fcat.
+            CLEAR: lw_fcat.
+          ENDIF.
+          CLEAR: lv_str, lv_current, lv_space.
+          lv_index = lv_index + 1.
+        ELSE.
+          IF lv_str EQ space.
+            lv_str = lv_one.
+            lv_current = lv_current + 1.
+            IF lv_current GT 1.
+              lv_space = abap_true.
+            ENDIF.
+          ELSE.
+            CONCATENATE lv_str lv_one INTO lv_str.
+            lv_current = lv_current + 1.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+      lv_read = lv_read + 1.
+      lv_now = lv_now + 1.
+    ENDDO.
+    IF lv_current NE 0.
+      SELECT rollname FROM dd04l
+                      INTO lv_rollname
+                      WHERE datatype EQ lc_char
+                      AND   leng EQ lv_current
+                      AND   rollname LIKE 'CHAR%'.
+        EXIT.
+      ENDSELECT.
+      READ TABLE gi_fields INTO lw_fields INDEX lv_index.
+      IF sy-subrc EQ 0.
+        lw_fields-rollname = lv_rollname.
+        MODIFY gi_fields FROM lw_fields INDEX lv_index.
+        lw_fcat-col_pos       = lv_index.
+        lw_fcat-outputlen     = lv_current.
+        lw_fcat-fieldname     = lw_fields-fname.
+        lw_fcat-rollname      = lw_fields-rollname.
+        lw_fcat-coltext       = lw_fcat-tooltip = lw_fields-ftext.
+        APPEND lw_fcat TO gi_false_fcat.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PRV_BG_INFO->CREATE_DUMMY_TABLE
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] EO_TABLE                       TYPE REF TO DATA
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD create_dummy_table.
+    IF gi_false_fcat IS INITIAL.
+      RETURN.
+    ENDIF.
+    CALL METHOD cl_alv_table_create=>create_dynamic_table
+      EXPORTING
+        it_fieldcatalog = gi_false_fcat
+      IMPORTING
+        ep_table        = eo_table.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PRV_BG_INFO->CREATE_DYNAMIC_FCAT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_SPOOL                       TYPE        MSSCOLLIST
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD create_dynamic_fcat.
+    DATA: lv_true TYPE boole_d,
+          lw_fcat TYPE lvc_s_fcat.
+    CONSTANTS: lc_char TYPE datatype_d VALUE 'CHAR',
+               lc_time TYPE rollname VALUE 'TIMEL',
+               lc_data TYPE rollname VALUE 'DATUM'.
+    REFRESH: gi_dfcat.
+
+    DATA(lv_len) = strlen( iv_spool ).
+    DATA: lv_str     TYPE string,
+          lv_one     TYPE char1,
+          lv_current TYPE i,
+          lv_now     TYPE i,
+          lv_read    TYPE i,
+          lv_index   TYPE i,
+          lv_space   TYPE boole_d.
+    lv_len = lv_len - 1.
+    lv_read = 1.
+    lv_now = 0.
+    lv_index =  1.
+    DO lv_len TIMES.
+      IF sy-index GT 1.
+        lv_one = iv_spool+lv_now(lv_read).
+        IF lv_one EQ '|'.
+          is_date(
+            EXPORTING
+              iv_value = lv_str
+            IMPORTING
+              ev_date  = DATA(lv_date)    " Date
+              ev_true  = lv_true
+          ).
+          IF lv_true EQ abap_true.
+            is_time(
+              EXPORTING
+                iv_value =  lv_str
+              IMPORTING
+                ev_time  = DATA(lv_time)
+                ev_true  = lv_true
+            ).
+          ENDIF.
+          IF lv_true EQ abap_false.
+            SELECT rollname FROM dd04l
+                            INTO @DATA(lv_rollname)
+                            WHERE datatype EQ @lc_char
+                            AND   leng EQ @lv_current
+                            AND   rollname LIKE 'CHAR%'.
+              EXIT.
+            ENDSELECT.
+          ENDIF.
+          READ TABLE gi_fields INTO DATA(lw_fields) INDEX lv_index.
+          IF sy-subrc EQ 0.
+            IF lv_true EQ abap_true.
+              IF lv_time IS NOT INITIAL.
+                lw_fields-rollname = lc_time.
+              ELSEIF lv_date IS NOT INITIAL.
+                lw_fields-rollname = lc_data.
+              ENDIF.
+            ELSE.
+              lw_fields-rollname = lv_rollname.
+            ENDIF.
+            MODIFY gi_fields FROM lw_fields INDEX lv_index.
+            lw_fcat-col_pos       = lv_index.
+            lw_fcat-outputlen     = lv_current.
+            lw_fcat-fieldname     = lw_fields-fname.
+            lw_fcat-rollname      = lw_fields-rollname.
+            lw_fcat-coltext       = lw_fields-ftext.
+            lw_fcat-scrtext_m     = lw_fields-ftext.
+            lw_fcat-scrtext_l     = lw_fields-ftext.
+            lw_fcat-scrtext_l     = lw_fields-ftext.
+            lw_fcat-tooltip       = lw_fields-ftext.
+            APPEND lw_fcat TO gi_dfcat.
+            CLEAR: lw_fcat.
+          ENDIF.
+          CLEAR: lv_str, lv_current, lv_space.
+          lv_index = lv_index + 1.
+        ELSE.
+          IF lv_str EQ space.
+            lv_str = lv_one.
+            lv_current = lv_current + 1.
+            IF lv_current GT 1.
+              lv_space = abap_true.
+            ENDIF.
+          ELSE.
+            CONCATENATE lv_str lv_one INTO lv_str.
+            lv_current = lv_current + 1.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+      lv_read = lv_read + 1.
+      lv_now = lv_now + 1.
+    ENDDO.
+    IF lv_current NE 0.
+      is_date(
+            EXPORTING
+              iv_value = lv_str
+            IMPORTING
+              ev_date  = lv_date    " Date
+              ev_true  = lv_true
+          ).
+      IF lv_true EQ abap_true.
+        is_time(
+          EXPORTING
+            iv_value =  lv_str
+          IMPORTING
+            ev_time  = lv_time
+            ev_true  = lv_true
+        ).
+      ENDIF.
+      IF lv_true EQ abap_false.
+        SELECT rollname FROM dd04l
+                        INTO lv_rollname
+                        WHERE datatype EQ lc_char
+                        AND   leng EQ lv_current
+                        AND   rollname LIKE 'CHAR%'.
+          EXIT.
+        ENDSELECT.
+      ENDIF.
+      READ TABLE gi_fields INTO lw_fields INDEX lv_index.
+      IF sy-subrc EQ 0.
+        IF lv_true EQ abap_true.
+          IF lv_time IS NOT INITIAL.
+            lw_fields-rollname = lc_time.
+          ELSEIF lv_date IS NOT INITIAL.
+            lw_fields-rollname = lc_data.
+          ENDIF.
+        ELSE.
+          lw_fields-rollname = lv_rollname.
+        ENDIF.
+        MODIFY gi_fields FROM lw_fields INDEX lv_index.
+        lw_fcat-col_pos       = lv_index.
+        lw_fcat-outputlen     = lv_current.
+        lw_fcat-fieldname     = lw_fields-fname.
+        lw_fcat-rollname      = lw_fields-rollname.
+        lw_fcat-coltext       = lw_fcat-tooltip = lw_fields-ftext.
+        APPEND lw_fcat TO gi_dfcat.
+      ENDIF.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PRV_BG_INFO->CREATE_MAIN_FCAT
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD create_main_fcat.
+    TYPES: BEGIN OF ty_type,
+             type TYPE char1,
+           END OF  ty_type.
+    DATA: li_type TYPE STANDARD TABLE OF ty_type,
+          lw_type TYPE ty_type.
+    FIELD-SYMBOLS: <li> TYPE STANDARD TABLE.
+    CONSTANTS: lc_time    TYPE rollname VALUE 'ERZET',
+               lc_date    TYPE rollname VALUE 'DATUM',
+               lc_float   TYPE rollname VALUE 'NTGEW_15',
+               lc_integer TYPE rollname VALUE 'TYPINT8',
+               lc_curr    TYPE rollname VALUE 'NETWR_FP',
+               lc_p       TYPE char1 VALUE 'P',
+               lc_d       TYPE char1 VALUE 'D',
+               lc_c       TYPE char1 VALUE 'C',
+               lc_i       TYPE char1 VALUE 'I',
+               lc_t       TYPE char1 VALUE 'T'.
+    DATA: lv_bdate    TYPE boole_d,
+          lv_binteger TYPE boole_d,
+          lv_btime    TYPE boole_d,
+          lv_bfloat   TYPE boole_d,
+          lv_bcurr    TYPE boole_d.
+
+    REFRESH: gi_dfcat.
+    IF go_dummy_table IS INITIAL.
+      RETURN.
+    ENDIF.
+    ASSIGN go_dummy_table->* TO <li>.
+    IF <li> IS NOT ASSIGNED.
+      RETURN.
+    ENDIF.
+    LOOP AT gi_false_fcat INTO DATA(lw_fcat).
+      CLEAR: lv_bdate, lv_binteger, lv_btime, lv_bfloat, lv_bcurr.
+      REFRESH: li_type.
+      LOOP AT <li> ASSIGNING FIELD-SYMBOL(<lw>).
+        ASSIGN COMPONENT lw_fcat-fieldname OF STRUCTURE <lw> TO FIELD-SYMBOL(<lv_val>).
+        IF <lv_val> IS ASSIGNED.
+          IF lv_bdate EQ abap_true.
+            is_date(
+              EXPORTING
+                  iv_value = <lv_val>
+              IMPORTING
+                  ev_date  = DATA(lv_date)    " Date
+                  ev_true  = lv_bdate
+                    ).
+            IF lv_bdate EQ abap_true.
+              lw_type-type = lc_d.
+              APPEND lw_type TO li_type.
+              CONTINUE.
+            ELSE.
+              lw_type-type = space.
+              APPEND lw_type TO li_type.
+            ENDIF.
+          ELSEIF lv_btime EQ abap_true.
+            is_time(
+                        EXPORTING
+                          iv_value =  <lv_val>
+                        IMPORTING
+                          ev_time  = DATA(lv_time)
+                          ev_true  = lv_btime
+                      ).
+            IF lv_btime EQ abap_true.
+              lw_type-type = lc_t.
+              APPEND lw_type TO li_type.
+              CONTINUE.
+            ELSE.
+              lw_type-type = space.
+              APPEND lw_type TO li_type.
+            ENDIF.
+          ELSEIF lv_binteger EQ abap_true.
+            is_integer(
+              EXPORTING
+                iv_value = <lv_val>
+              IMPORTING
+                ev_value =  lv_binteger   " Data element for domain BOOLE: TRUE (='X') and FALSE (=' ')
+            ).
+            IF lv_binteger EQ abap_true.
+              lw_type-type = lc_i.
+              APPEND lw_type TO li_type.
+              CONTINUE.
+            ELSE.
+              lw_type-type = space.
+              APPEND lw_type TO li_type.
+            ENDIF.
+          ELSEIF lv_bfloat EQ abap_true.
+            is_floating(
+              EXPORTING
+                iv_value = <lv_val>
+              IMPORTING
+                ev_value =  lv_bfloat   " Data element for domain BOOLE: TRUE (='X') and FALSE (=' ')
+            ).
+            IF lv_bfloat EQ abap_true.
+              lw_type-type = lc_p.
+              APPEND lw_type TO li_type.
+              CONTINUE.
+            ELSE.
+              lw_type-type = space.
+              APPEND lw_type TO li_type.
+            ENDIF.
+          ELSEIF lv_bcurr EQ abap_true.
+            is_currency(
+              EXPORTING
+                iv_value = <lv_val>
+              IMPORTING
+                ev_value = lv_bcurr    " Data element for domain BOOLE: TRUE (='X') and FALSE (=' ')
+            ).
+            IF lv_bcurr EQ abap_true.
+              lw_type-type = lc_p.
+              APPEND lw_type TO li_type.
+              CONTINUE.
+            ELSE.
+              lw_type-type = space.
+              APPEND lw_type TO li_type.
+            ENDIF.
+          ENDIF.
+
+          is_date(
+              EXPORTING
+                  iv_value = <lv_val>
+              IMPORTING
+                  ev_date  = lv_date    " Date
+                  ev_true  = lv_bdate
+                    ).
+          IF lv_bdate EQ abap_true.
+            lw_type-type = lc_d.
+            APPEND lw_type TO li_type.
+            CONTINUE.
+          ENDIF.
+          is_time(
+            EXPORTING
+              iv_value =  <lv_val>
+            IMPORTING
+              ev_time  = lv_time
+              ev_true  = lv_btime
+          ).
+          IF lv_btime EQ abap_true.
+            lw_type-type = lc_t.
+            APPEND lw_type TO li_type.
+            CONTINUE.
+          ENDIF.
+          is_integer(
+            EXPORTING
+              iv_value = <lv_val>
+            IMPORTING
+              ev_value =  lv_binteger   " Data element for domain BOOLE: TRUE (='X') and FALSE (=' ')
+          ).
+          IF lv_binteger EQ abap_true.
+            lw_type-type = lc_i.
+            APPEND lw_type TO li_type.
+            CONTINUE.
+          ENDIF.
+          is_floating(
+            EXPORTING
+              iv_value = <lv_val>
+            IMPORTING
+              ev_value =  lv_bfloat   " Data element for domain BOOLE: TRUE (='X') and FALSE (=' ')
+          ).
+          IF lv_bfloat EQ abap_true.
+            lw_type-type = lc_p.
+            APPEND lw_type TO li_type.
+            CONTINUE.
+          ENDIF.
+          is_currency(
+            EXPORTING
+              iv_value = <lv_val>
+            IMPORTING
+              ev_value = lv_bcurr    " Data element for domain BOOLE: TRUE (='X') and FALSE (=' ')
+          ).
+          IF lv_bcurr EQ abap_true.
+            lw_type-type = lc_p.
+            APPEND lw_type TO li_type.
+            CONTINUE.
+          ENDIF.
+        ENDIF.
+      ENDLOOP.
+
+      IF li_type IS NOT INITIAL.
+        SORT li_type BY type.
+        DELETE ADJACENT DUPLICATES FROM li_type COMPARING type.
+        IF lines( li_type ) NE 1.
+          CLEAR: lv_bdate, lv_binteger, lv_btime, lv_bfloat, lv_bcurr.
+        ENDIF.
+      ENDIF.
+
+      IF lv_bdate EQ abap_true.
+        lw_fcat-rollname    = lc_date.
+        lw_fcat-datatype    = 'DATS'.
+        lw_fcat-inttype     = 'D'.
+        lw_fcat-intlen      = '000008'.
+        lw_fcat-dd_outlen   = '000010'.
+        lw_fcat-domname     = 'DATUM'.
+
+      ELSEIF lv_binteger EQ abap_true.
+        lw_fcat-rollname    = lc_integer.
+        lw_fcat-datatype    = 'INT8'.
+        lw_fcat-inttype     = 'I'.
+        lw_fcat-intlen      = '000020'.
+        lw_fcat-dd_outlen   = '000020'.
+        lw_fcat-domname     = 'TYPINT8'.
+
+      ELSEIF lv_bfloat EQ abap_true.
+        lw_fcat-rollname    = lc_float.
+        lw_fcat-qfieldname  = 'MEINS'.
+        lw_fcat-datatype    = 'QUAN'.
+        lw_fcat-inttype     = 'P'.
+        lw_fcat-intlen      = '000013'.
+        lw_fcat-dd_outlen   = '000017'.
+        lw_fcat-domname     = 'MENG15'.
+
+      ELSEIF lv_btime EQ abap_true.
+        lw_fcat-rollname    = lc_time.
+        lw_fcat-datatype    = 'TIMS'.
+        lw_fcat-inttype     = 'T'.
+        lw_fcat-intlen      = '000006'.
+        lw_fcat-dd_outlen   = '000008'.
+        lw_fcat-domname     = 'UZEIT'.
+
+      ELSEIF lv_bcurr EQ abap_true.
+        lw_fcat-rollname    = lc_curr.
+        lw_fcat-datatype    = 'CURR'.
+        lw_fcat-inttype     = 'P'.
+        lw_fcat-intlen      = '000015'.
+        lw_fcat-dd_outlen   = '000021'.
+        lw_fcat-domname     = 'WERTV8'.
+*        lw_fcat-cfieldname = ''.
+      ENDIF.
+      APPEND lw_fcat TO gi_dfcat.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PRV_BG_INFO->CREATE_TABLE
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] EO_TABLE                       TYPE REF TO DATA
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD create_table.
+    DATA: li_deep   TYPE cl_abap_structdescr=>component_table,
+          lw_deep   LIKE LINE OF li_deep,
+
+          lo_w_deep TYPE REF TO cl_abap_structdescr,
+          lo_i_deep TYPE REF TO cl_abap_tabledescr,
+
+          lo_ole    TYPE REF TO zcl_prv_ole_pro,
+
+          li_color  TYPE lvc_t_scol.
+
+    FIELD-SYMBOLS: <li_color> TYPE lvc_t_scol.
+    IF gi_dfcat IS INITIAL.
+      RETURN.
+    ENDIF.
+    IF eo_table IS NOT INITIAL.
+      FREE: eo_table.
+    ENDIF.
+    REFRESH: li_deep.
+    lo_ole = NEW zcl_prv_ole_pro( ).
+    LOOP AT gi_dfcat INTO DATA(lw_fcat).
+      CASE lo_ole->get_data_type( iv_roll = lw_fcat-rollname ).
+        WHEN 'C'.
+          lw_deep-type = cl_abap_elemdescr=>get_c( p_length = 40 ).
+        WHEN 'I'.
+          lw_deep-type = cl_abap_elemdescr=>get_i( ).
+        WHEN 'D'.
+          lw_deep-type = cl_abap_elemdescr=>get_f( ).
+        WHEN 'N'.
+          lw_deep-type = cl_abap_elemdescr=>get_n( p_length = 10 ).
+        WHEN 'S'.
+          lw_deep-type = cl_abap_elemdescr=>get_d( ).
+        WHEN 'T'.
+          lw_deep-type = cl_abap_elemdescr=>get_t( ).
+        WHEN OTHERS.
+          lw_deep-type = cl_abap_elemdescr=>get_string( ).
+      ENDCASE.
+      lw_deep-name = lw_fcat-fieldname.
+      APPEND lw_deep TO li_deep.
+    ENDLOOP.
+
+    ASSIGN li_color TO <li_color>.
+    CALL METHOD cl_abap_elemdescr=>describe_by_data
+      EXPORTING
+        p_data      = <li_color>    " Field
+      RECEIVING
+        p_descr_ref = DATA(lo_color).
+
+    lw_deep-name = gc_color_col.
+    lw_deep-type ?= lo_color.
+    APPEND lw_deep TO li_deep.
+
+    lo_w_deep = cl_abap_structdescr=>create( li_deep ).
+    lo_i_deep = cl_abap_tabledescr=>create( lo_w_deep ).
+
+    CREATE DATA eo_table TYPE HANDLE lo_i_deep.
+
+    CREATE DATA go_wa TYPE HANDLE lo_w_deep.
+
+
+*    CALL METHOD cl_alv_table_create=>create_dynamic_table
+*      EXPORTING
+*        it_fieldcatalog = gi_fcat
+*      IMPORTING
+*        ep_table        = eo_table.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PRV_BG_INFO->DEACTIVATE_BG_JOB
+* +-------------------------------------------------------------------------------------------------+
+* | [EXC!] JOB_NOT_STARTED
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD deactivate_bg_job.
+    DATA: lv_btcjobcnt TYPE btcjobcnt,
+          lw_job       TYPE ty_job_details.
+    CONSTANTS: lc_f  TYPE btcpstatus VALUE 'P'. "Scenduled
+    CLEAR:lw_job.
+    SELECT SINGLE o~jobname o~jobcount p~progname o~reluname p~listident p~paart FROM tbtco AS o
+                                INNER JOIN tbtcp AS p
+                                ON o~jobname EQ p~jobname
+                                AND o~jobcount EQ p~jobcount
+                                INTO lw_job
+                                WHERE o~jobname EQ gc_bg_job_name
+                                AND   p~progname EQ gc_process_progm
+                                AND   p~status EQ lc_f.
+    IF sy-subrc NE 0.
+      RAISE job_not_started.
+    ENDIF.
+
+    CALL FUNCTION 'BP_JOB_DELETE'
+      EXPORTING
+        jobcount                 = lw_job-jobcount
+        jobname                  = gc_bg_job_name
+      EXCEPTIONS
+        cant_delete_event_entry  = 1
+        cant_delete_job          = 2
+        cant_delete_joblog       = 3
+        cant_delete_steps        = 4
+        cant_delete_time_entry   = 5
+        cant_derelease_successor = 6
+        cant_enq_predecessor     = 7
+        cant_enq_successor       = 8
+        cant_enq_tbtco_entry     = 9
+        cant_update_predecessor  = 10
+        cant_update_successor    = 11
+        commit_failed            = 12
+        jobcount_missing         = 13
+        jobname_missing          = 14
+        job_does_not_exist       = 15
+        job_is_already_running   = 16
+        no_delete_authority      = 17
+        OTHERS                   = 18.
+    IF sy-subrc EQ 0.
+
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PRV_BG_INFO->DISPLAY_F4
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_FIELD                       TYPE        FIELDNAME
+* | [--->] IT_TABLE                       TYPE        STANDARD TABLE
+* | [<---] EV_VALUE                       TYPE        SHVALUE_D
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD display_f4.
+    DATA: li_return TYPE STANDARD TABLE OF ddshretval.
+    CALL FUNCTION 'F4IF_INT_TABLE_VALUE_REQUEST'
+      EXPORTING
+        retfield        = iv_field
+        dynpprog        = sy-repid
+        dynpnr          = sy-dynnr
+        value_org       = 'S'
+      TABLES
+        value_tab       = it_table
+        return_tab      = li_return
+      EXCEPTIONS
+        parameter_error = 1
+        no_values_found = 2
+        OTHERS          = 3.
+    IF sy-subrc EQ 0.
+      READ TABLE li_return INTO DATA(lw_return) INDEX 1.
+      IF sy-subrc EQ 0.
+        ev_value = lw_return-fieldval.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PRV_BG_INFO->DISPLAY_F4_VARIANT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_JOB_NAME                    TYPE        BTCJOB
+* | [--->] IV_PROGRAM                     TYPE        PROGRAMM
+* | [<---] EV_VARIANT                     TYPE        SHVALUE_D
+* | [EXC!] NO_JOB_FOUND
+* | [EXC!] NO_PROGRAM_FOUND
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD display_f4_variant.
+    TYPES: BEGIN OF ty_vari,
+             vairn TYPE covaritxt,
+           END OF ty_vari.
+    DATA: li_variant TYPE STANDARD TABLE OF ty_vari.
+    IF iv_job_name IS INITIAL.
+      RAISE no_job_found.
+    ENDIF.
+    IF iv_program IS INITIAL.
+      RAISE no_program_found.
+    ENDIF.
+
+    SELECT vairn FROM zprv_ole_vari
+                 INTO TABLE li_variant
+                 WHERE progn EQ iv_program
+                 AND   jobname EQ iv_job_name.
+    IF sy-subrc EQ 0.
+      SORT li_variant ASCENDING.
+      DELETE ADJACENT DUPLICATES FROM li_variant COMPARING vairn.
+      display_f4(
+              EXPORTING
+                iv_field = 'VAIRN'    " Field Name
+                it_table = li_variant
+              IMPORTING
+                ev_value = ev_variant    " Field contents, min./max. value
+            ).
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PRV_BG_INFO->DISPLAY_JOBS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_JOB_NAME                    TYPE        BTCJOB
+* | [--->] IV_DATE                        TYPE        DATUM
+* | [--->] IV_USER                        TYPE        XUBNAME
+* | [--->] IV_PROGRAM                     TYPE        PROGNAME
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD display_jobs.
+    DATA: lw_layout TYPE lvc_s_layo.
+    get_job_information(
+      EXPORTING
+        iv_job_name = iv_job_name    " Background job name
+        iv_date     = iv_date    " Date
+        iv_user     = iv_user    " User Name in User Master Record
+        iv_program  = iv_program    " ABAP Program Name
+      EXCEPTIONS
+        not_found   = 1
+        OTHERS      = 2
+    ).
+    IF sy-subrc <> 0.
+      MESSAGE TEXT-nfd TYPE 'I'.
+      RETURN.
+    ENDIF.
+    IF go_container IS INITIAL.
+      go_container = NEW cl_gui_custom_container(
+          container_name              = gc_container
+      ).
+
+      go_jalv  = NEW cl_gui_alv_grid(
+          i_parent          = go_container
+      ).
+
+      generate_job_fcat( ).
+
+      lw_layout-sel_mode = 'B'.
+      go_jalv->set_table_for_first_display(
+        EXPORTING
+          i_save                        =  'A'   " Save Layout
+          i_default                     = 'X'    " Default Display Variant
+          is_layout                     = lw_layout
+        CHANGING
+          it_outtab                     = gi_job_details    " Output Table
+          it_fieldcatalog               = gi_fcat    " Field Catalog
+        EXCEPTIONS
+          invalid_parameter_combination = 1
+          program_error                 = 2
+          too_many_lines                = 3
+          OTHERS                        = 4
+      ).
+      IF sy-subrc <> 0.
+      ENDIF.
+    ENDIF.
+
+    IF go_jalv IS NOT INITIAL.
+      go_jalv->refresh_table_display(
+        EXPORTING
+*          is_stable      =     " With Stable Rows/Columns
+          i_soft_refresh = abap_true    " Without Sort, Filter, etc.
+        EXCEPTIONS
+          finished       = 1
+          OTHERS         = 2
+      ).
+      IF sy-subrc <> 0.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PRV_BG_INFO->DISPLAY_JOB_F4
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] EV_JOB                         TYPE        SHVALUE_D
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD display_job_f4.
+    TYPES: BEGIN OF ty_job,
+             job TYPE btcjob,
+           END OF ty_job.
+    DATA: li_job TYPE STANDARD TABLE OF ty_job.
+
+    SELECT jobname FROM zprv_ole_vari
+                   INTO TABLE li_job
+                   WHERE jobname NE space.
+    IF sy-subrc EQ 0.
+      SORT li_job ASCENDING.
+      DELETE ADJACENT DUPLICATES FROM li_job COMPARING ALL FIELDS.
+
+      display_f4(
+        EXPORTING
+          iv_field = 'JOB'    " Field Name
+          it_table = li_job
+        IMPORTING
+          ev_value = ev_job    " Field contents, min./max. value
+      ).
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PRV_BG_INFO->DISPLAY_PROGRAM_F4
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_JOB_NAME                    TYPE        BTCJOB
+* | [<---] EV_PROGRAM                     TYPE        SHVALUE_D
+* | [EXC!] NO_JOB_FOUND
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD display_program_f4.
+    TYPES: BEGIN OF ty_prog,
+             progn TYPE programm,
+           END OF ty_prog.
+    DATA: li_program TYPE STANDARD TABLE OF ty_prog.
+    IF iv_job_name IS INITIAL.
+      RAISE no_job_found.
+    ENDIF.
+    SELECT progn FROM zprv_ole_vari
+                       INTO TABLE li_program
+                       WHERE jobname EQ iv_job_name.
+    IF sy-subrc EQ 0.
+      SORT li_program ASCENDING.
+      DELETE ADJACENT DUPLICATES FROM li_program COMPARING ALL FIELDS.
+
+      display_f4(
+        EXPORTING
+          iv_field = 'PROGN'    " Field Name
+          it_table = li_program
+        IMPORTING
+          ev_value = ev_program    " Field contents, min./max. value
+      ).
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PRV_BG_INFO->DISPLAY_SPOOL_DATA
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_SPOOL                       TYPE        RSPOID
+* | [--->] IV_PROGRAM                     TYPE        PROGNAME
+* | [--->] IV_JOB_NAME                    TYPE        BTCJOB
+* | [EXC!] SPOOL_ERROR
+* | [EXC!] NO_RECORDS_FOUND
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD display_spool_data.
+    DATA: li_buffer TYPE typ_buffer,
+          lw_layout TYPE lvc_s_layo.
+    FIELD-SYMBOLS: <li> TYPE STANDARD TABLE.
+
+    IF go_table IS INITIAL.
+      get_spool_data(
+        EXPORTING
+          iv_spool    =  iv_spool   " Spool request number
+          IMPORTING
+            et_buffer = li_buffer
+            ev_page   = DATA(lv_page)
+        EXCEPTIONS
+          spool_error = 1
+          OTHERS      = 2
+      ).
+      IF sy-subrc <> 0.
+        RAISE spool_error.
+      ENDIF.
+      create_table(
+        IMPORTING
+          eo_table = go_table
+      ).
+
+      insert_data( it_buffer = li_buffer
+                   iv_page   = lv_page ).
+
+      ASSIGN go_table->* TO <li>.
+      IF lines( <li> ) EQ 0.
+        RAISE no_records_found.
+      ENDIF.
+
+      IF go_spool_alv IS INITIAL.
+        go_spool_alv = NEW cl_gui_alv_grid(
+            i_parent          = cl_gui_custom_container=>default_screen
+        ).
+        lw_layout-ctab_fname = gc_color_col.
+        go_ole  = NEW zcl_prv_ole_pro( iv_program = iv_program
+                                       iv_job_name = iv_job_name ).
+        go_ole->get_alv(
+          EXPORTING
+            iv_color_field  =  gc_color_col   " Color Field Name
+*            iv_color        = 2    " Color for ALV Cells (1 to 7)
+          CHANGING
+            co_alv          =  go_spool_alv   " ALV List Viewer
+            ci_table        = <li>
+          EXCEPTIONS
+            alv_not_initial = 1
+            excel_not_found = 2
+            no_color_field  = 3
+            no_data         = 4
+            OTHERS          = 5
+        ).
+        IF sy-subrc <> 0.
+
+        ENDIF.
+        go_spool_alv->set_table_for_first_display(
+          EXPORTING
+            i_save                        = 'A'    " Save Layout
+            i_default                     = 'X'    " Default Display Variant
+            is_layout                     = lw_layout    " Layout
+          CHANGING
+            it_outtab                     =  <li>   " Output Table
+            it_fieldcatalog               =  gi_dfcat   " Field Catalog
+          EXCEPTIONS
+            invalid_parameter_combination = 1
+            program_error                 = 2
+            too_many_lines                = 3
+            OTHERS                        = 4
+        ).
+        IF sy-subrc EQ 0.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+    IF go_spool_alv IS NOT INITIAL.
+      go_spool_alv->refresh_table_display(
+*        EXPORTING
+*          is_stable      =     " With Stable Rows/Columns
+*          i_soft_refresh =     " Without Sort, Filter, etc.
+        EXCEPTIONS
+          finished       = 1
+          OTHERS         = 2
+      ).
+      IF sy-subrc <> 0.
+      ENDIF.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PRV_BG_INFO->FREE_COLOR_COLUMN
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD free_color_column.
+    FIELD-SYMBOLS: <li>       TYPE STANDARD TABLE,
+                   <lw>       TYPE any,
+                   <li_color> TYPE lvc_t_scol.
+    ASSIGN go_table->* TO <li>.
+    ASSIGN go_wa->* TO <lw>.
+
+    IF <li> IS NOT ASSIGNED.
+      RETURN.
+    ENDIF.
+
+
+    LOOP AT <li> ASSIGNING <lw>.
+      ASSIGN COMPONENT gc_color_col OF STRUCTURE <lw> TO <li_color>.
+      IF <li_color> IS ASSIGNED.
+        IF <li_color> IS NOT INITIAL.
+          REFRESH: <li_color>.
+        ENDIF.
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PRV_BG_INFO->FREE_CONTENT
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD free_content.
+    IF go_text IS NOT INITIAL.
+      go_text->free(
+        EXCEPTIONS
+          cntl_error        = 1
+          cntl_system_error = 2
+          OTHERS            = 3
+      ).
+      IF sy-subrc <> 0.
+      ENDIF.
+      FREE: go_text.
+    ENDIF.
+
+    IF go_tex_con IS NOT INITIAL.
+      go_tex_con->free(
+        EXCEPTIONS
+          cntl_error        = 1
+          cntl_system_error = 2
+          OTHERS            = 3
+      ).
+      IF sy-subrc <> 0.
+      ENDIF.
+      FREE: go_tex_con.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PRV_BG_INFO->FREE_MAIL
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD free_mail.
+    REFRESH: gi_mail.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PRV_BG_INFO->FREE_MAPPING
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD free_mapping.
+    REFRESH: gi_mapping.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PRV_BG_INFO->FREE_OUTPUT
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD free_output.
+    IF go_ole IS NOT INITIAL.
+      FREE: go_ole.
+    ENDIF.
+    IF go_spool_alv IS NOT INITIAL.
+      go_spool_alv->free(
+        EXCEPTIONS
+          cntl_error        = 1
+          cntl_system_error = 2
+          OTHERS            = 3
+      ).
+      IF sy-subrc EQ 0.
+        FREE: go_spool_alv.
+      ENDIF.
+    ENDIF.
+    REFRESH: gi_dfcat, gi_fields, gi_false_fcat.
+    FREE: go_table, go_wa, go_dummy_table.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PRV_BG_INFO->GENERATE_JOB_FCAT
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD generate_job_fcat.
+    DATA:jobname  TYPE btcjob,
+         progname TYPE btcprog,
+         reluname TYPE btcrelnm.
+
+    DATA: lw_fcat TYPE lvc_s_fcat.
+    lw_fcat-col_pos       = 1.
+    lw_fcat-outputlen     = 32.
+    lw_fcat-fieldname     = 'JOBNAME'.
+    lw_fcat-rollname      = 'BTCJOB'.
+    lw_fcat-coltext       = lw_fcat-tooltip = 'Job Name'.
+    APPEND lw_fcat TO gi_fcat.
+
+    lw_fcat-col_pos       = 2.
+    lw_fcat-outputlen     = 40.
+    lw_fcat-fieldname     = 'PROGNAME'.
+    lw_fcat-rollname      = 'BTCPROG'.
+    lw_fcat-coltext       = lw_fcat-tooltip = 'Program Name'.
+    APPEND lw_fcat TO gi_fcat.
+
+    lw_fcat-col_pos       = 3.
+    lw_fcat-outputlen     = 12.
+    lw_fcat-fieldname     = 'RELUNAME'.
+    lw_fcat-rollname      = 'BTCRELNM'.
+    lw_fcat-coltext       = lw_fcat-tooltip = 'User Name'.
+    APPEND lw_fcat TO gi_fcat.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PRV_BG_INFO->GET_CONTENT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_READ                        TYPE        I
+* | [<---] IT_CONTENT                     TYPE        ZCL_PRV_OLE_PRO=>TYP_MAIL_CONTENT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD get_content.
+    DATA: lw_text TYPE as4text.
+    READ TABLE gi_mapping INTO DATA(lw_bg_map) INDEX iv_read.
+*      READ TABLE gi_bg_map INTO DATA(lw_bg_map) INDEX iv_read.
+    IF sy-subrc EQ 0.
+      SPLIT lw_bg_map-content AT cl_abap_char_utilities=>newline INTO TABLE DATA(li_content).
+      IF sy-subrc EQ 0 AND li_content IS NOT INITIAL.
+        LOOP AT li_content INTO DATA(lw_content).
+          lw_text = lw_content.
+          APPEND lw_text TO it_content.
+        ENDLOOP.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PRV_BG_INFO->GET_FIELDS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_SPOOL_DATA                  TYPE        MSSCOLLIST
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD get_fields.
+    DATA: lw_fields TYPE ty_fields,
+          lv_num    TYPE numc3.
+    REFRESH: gi_fields.
+    IF iv_spool_data IS INITIAL.
+      RETURN.
+    ENDIF.
+    lv_num = 1.
+    SPLIT iv_spool_data AT '|' INTO TABLE DATA(li_desc).
+    LOOP AT li_desc INTO DATA(lw_desc).
+      IF lw_desc NE '|' AND lw_desc NE space.
+        lw_fields-fname = gc_field_name && '_' && lv_num.
+        CONDENSE lw_fields-fname NO-GAPS.
+        lw_fields-ftext = lw_desc.
+        APPEND lw_fields TO gi_fields.
+        lv_num = lv_num + 1.
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PRV_BG_INFO->GET_FIELDS_INDEX
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_BUFFER                      TYPE        TYP_BUFFER
+* | [<---] EV_FIELD_INDEX                 TYPE        I
+* | [<---] EV_VALUE_INDEX                 TYPE        I
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD get_fields_index.
+    TYPES: BEGIN OF ty_len,
+             line TYPE i,
+           END OF ty_len.
+    DATA: li_line TYPE STANDARD TABLE OF ty_len,
+          lw_line TYPE ty_len,
+          lv_len1 TYPE i,
+          lv_len2 TYPE i.
+    LOOP AT it_buffer INTO DATA(lw_buffer).
+      SPLIT lw_buffer AT '|' INTO TABLE DATA(li_fields).
+      lw_line-line = lines( li_fields ).
+      APPEND lw_line TO li_line.
+    ENDLOOP.
+    IF li_line IS NOT INITIAL.
+      LOOP AT li_line INTO lw_line.
+        DATA(lv_index) = sy-tabix.
+        IF lv_len1 IS INITIAL.
+          lv_len1 = lw_line-line.
+        ELSE.
+          lv_len2 = lw_line-line.
+          IF lv_len1 LT lv_len2.
+            ev_field_index = lv_index.
+            lv_len1 = lv_len2.
+            CLEAR: ev_value_index.
+          ELSEIF lv_len1 EQ lv_len2.
+            IF ev_value_index IS INITIAL.
+              ev_value_index = lv_index.
+            ENDIF.
+          ENDIF.
+        ENDIF.
+      ENDLOOP.
+    ENDIF.
+    IF ev_field_index IS NOT INITIAL.
+      ev_value_index = ev_field_index + 2.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PRV_BG_INFO->GET_JOB_INFORMATION
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_JOB_NAME                    TYPE        BTCJOB
+* | [--->] IV_DATE                        TYPE        DATUM
+* | [--->] IV_USER                        TYPE        XUBNAME
+* | [--->] IV_PROGRAM                     TYPE        PROGNAME
+* | [EXC!] NOT_FOUND
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD get_job_information.
+
+    DATA: li_job  TYPE RANGE OF btcjob,
+          lw_job  LIKE LINE OF li_job,
+          li_user TYPE RANGE OF xubname,
+          lw_user LIKE LINE OF li_job,
+          li_prog TYPE RANGE OF progname,
+          lw_prog LIKE LINE OF li_prog,
+          lv_job  TYPE btcjob,
+          lv_prog TYPE progname,
+          lv_user TYPE xubname.
+    REFRESH: gi_job_details.
+    CONSTANTS lc_l TYPE rspofmttyp VALUE 'L'.
+    IF iv_job_name IS NOT INITIAL.
+      lv_job = iv_job_name.
+      lw_job-sign = 'I'.
+      REPLACE ALL OCCURRENCES OF '*' IN lv_job WITH '%'.
+      IF sy-subrc EQ 0.
+        lw_job-low = lv_job.
+        lw_job-option = 'CP'.
+      ELSE.
+        lw_job-low = iv_job_name.
+        lw_job-option = 'EQ'.
+      ENDIF.
+      APPEND lw_job TO li_job.
+    ENDIF.
+
+    IF iv_user IS NOT INITIAL.
+      lv_user = iv_user.
+      lw_user-sign = 'I'.
+      REPLACE ALL OCCURRENCES OF '*' IN lv_user WITH '%'.
+      IF sy-subrc EQ 0.
+        lw_user-low = lv_user.
+        lw_user-option = 'CP'.
+      ELSE.
+        lw_user-low = iv_user.
+        lw_user-option = 'EQ'.
+      ENDIF.
+      APPEND lw_user TO li_user.
+    ENDIF.
+
+    IF iv_program IS NOT INITIAL.
+      lv_prog = iv_program.
+      lw_prog-sign = 'I'.
+      REPLACE ALL OCCURRENCES OF '*' IN lv_prog WITH '%'.
+      IF sy-subrc EQ 0.
+        lw_prog-low = lv_prog.
+        lw_prog-option = 'CP'.
+      ELSE.
+        lw_prog-low = iv_program.
+        lw_prog-option = 'EQ'.
+      ENDIF.
+      APPEND lw_prog TO li_prog.
+    ENDIF.
+
+    SELECT o~jobname o~jobcount p~progname o~reluname p~listident p~paart FROM tbtco AS o
+                                INNER JOIN tbtcp AS p
+                                ON o~jobname EQ p~jobname
+                                AND o~jobcount EQ p~jobcount
+                                INTO TABLE gi_job_details
+                                WHERE o~strtdate EQ iv_date
+                                AND   o~reluname IN li_user
+                                AND   o~jobname IN li_job
+                                AND   p~progname IN li_prog
+                                AND   p~paart NE space.
+    IF sy-subrc NE 0.
+      RAISE not_found.
+    ELSE.
+      SELECT papart, type FROM tsp1d
+                         INTO TABLE @DATA(li_tsp1d)
+                         FOR ALL ENTRIES IN @gi_job_details
+                         WHERE papart EQ @gi_job_details-papart
+                         AND   type EQ @lc_l.
+      IF sy-subrc EQ 0.
+        LOOP AT gi_job_details INTO DATA(lw_job_details).
+          DATA(lv_indx) = sy-tabix.
+          READ TABLE li_tsp1d INTO DATA(lw_tsp1d) WITH KEY papart = lw_job_details-papart.
+          IF sy-subrc NE 0.
+            DELETE gi_job_details INDEX lv_indx.
+          ENDIF.
+        ENDLOOP.
+        IF gi_job_details IS INITIAL.
+          RAISE not_found.
+        ENDIF.
+      ELSE.
+        REFRESH: gi_job_details.
+        RAISE not_found.
+      ENDIF.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PRV_BG_INFO->GET_MAPPING_INFORAMTION
+* +-------------------------------------------------------------------------------------------------+
+* | [EXC!] NO_MAPPING_FOUND
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD get_mapping_inforamtion.
+    init_mapping( ).
+    IF gi_mapping IS INITIAL.
+      RAISE no_mapping_found.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PRV_BG_INFO->GET_NUMBER_OF_RECS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_SPOOL                       TYPE        MSSCOLLIST
+* | [<-()] RV_RECS                        TYPE        I
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD get_number_of_recs.
+    SPLIT iv_spool AT '|' INTO TABLE DATA(li_info).
+    IF lines( li_info ) GT 2.
+      READ TABLE li_info INTO DATA(lw_info) INDEX lines( li_info ).
+      IF sy-subrc EQ 0.
+        CONDENSE lw_info NO-GAPS.
+        IF NOT lw_info CA sy-abcde.
+          rv_recs = lw_info.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PRV_BG_INFO->GET_SELECTED_SPOOL
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] EV_SPOOL                       TYPE        RSPOID
+* | [<---] EV_PROGNAME                    TYPE        PROGNAME
+* | [<---] EV_JOB_NAME                    TYPE        BTCJOB
+* | [EXC!] NOT_SELECTED
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD get_selected_spool.
+    go_jalv->get_selected_rows(
+      IMPORTING
+        et_index_rows = DATA(lt_row)    " Indexes of Selected Rows
+        et_row_no     = DATA(lt_no)    " Numeric IDs of Selected Rows
+    ).
+    READ TABLE lt_no INTO DATA(lw_no) INDEX 1.
+    IF sy-subrc EQ 0.
+      READ TABLE gi_job_details INTO DATA(lw_job_details) INDEX lw_no-row_id.
+      IF sy-subrc EQ 0.
+        ev_spool = lw_job_details-listident.
+        ev_progname = lw_job_details-progname.
+        ev_job_name = lw_job_details-jobname.
+      ENDIF.
+    ELSE.
+      RAISE not_selected.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PRV_BG_INFO->GET_SPOOL_DATA
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_SPOOL                       TYPE        RSPOID
+* | [<---] ET_BUFFER                      TYPE        TYP_BUFFER
+* | [<---] EV_PAGE                        TYPE        I
+* | [EXC!] SPOOL_ERROR
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD get_spool_data.
+    DATA: li_rspoattr TYPE STANDARD TABLE OF rspoattr,
+          lw_rq       TYPE tsp01.
+    CLEAR: gv_value_index.
+    CALL FUNCTION 'RSPO_RETURN_ABAP_SPOOLJOB'
+      EXPORTING
+        rqident              = iv_spool
+      TABLES
+        buffer               = et_buffer
+      EXCEPTIONS
+        no_such_job          = 1
+        not_abap_list        = 2
+        job_contains_no_data = 3
+        selection_empty      = 4
+        no_permission        = 5
+        can_not_access       = 6
+        read_error           = 7
+        OTHERS               = 8.
+    IF sy-subrc <> 0.
+      RAISE spool_error.
+    ELSE.
+      CALL FUNCTION 'RSPO_GET_ATTRIBUTES_SPOOLJOB'
+        EXPORTING
+          rqident     = iv_spool
+        IMPORTING
+          rq          = lw_rq
+        TABLES
+          attributes  = li_rspoattr
+        EXCEPTIONS
+          no_such_job = 1
+          OTHERS      = 2.
+      IF sy-subrc EQ 0.
+        ev_page = lw_rq-rqapprule.
+      ENDIF.
+
+*    ELSE.
+*      READ TABLE et_buffer INTO DATA(lw_spool) INDEX 4.
+*      IF sy-subrc EQ 0.
+*        DATA(iv_recs) = get_number_of_recs( iv_spool = lw_spool ).
+*      ENDIF.
+
+      get_fields_index(
+        EXPORTING
+          it_buffer      = et_buffer
+        IMPORTING
+          ev_field_index = DATA(lv_fld_indx)     " Index Number for Fields
+          ev_value_index = gv_value_index    " Index Number for Values
+      ).
+
+      READ TABLE et_buffer INTO DATA(lw_spool) INDEX lv_fld_indx.
+      IF sy-subrc EQ 0.
+        get_fields( iv_spool_data = lw_spool ).
+      ENDIF.
+      IF gi_fields IS INITIAL.
+        RETURN.
+      ENDIF.
+      READ TABLE et_buffer INTO lw_spool INDEX gv_value_index.
+      create_dummy_fcat( iv_spool = lw_spool ).
+      create_dummy_table(
+        IMPORTING
+          eo_table = go_dummy_table
+      ).
+      insert_data(
+        EXPORTING
+          it_buffer = et_buffer
+          iv_page   = ev_page
+          iv_to     = 50
+      ).
+      create_main_fcat( ).
+*      create_dynamic_fcat( iv_spool = lw_spool ).
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PRV_BG_INFO->INIT_CONTENT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_READ                        TYPE        I
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD init_content.
+    DATA: li_text TYPE STANDARD TABLE OF as4text,
+          lw_text TYPE as4text.
+    IF go_tex_con IS INITIAL.
+      go_tex_con = NEW cl_gui_custom_container(
+          container_name              = gc_co_content
+      ).
+
+      go_text = NEW cl_gui_textedit(
+          parent                     =  go_tex_con
+      ).
+      go_text->set_toolbar_mode(
+        EXPORTING
+          toolbar_mode           = 0    " visibility of toolbar; eq 0: OFF ; ne 0: ON
+        EXCEPTIONS
+          error_cntl_call_method = 1
+          invalid_parameter      = 2
+          OTHERS                 = 3
+      ).
+      IF sy-subrc <> 0.
+      ENDIF.
+      READ TABLE gi_mapping INTO DATA(lw_bg_map) INDEX iv_read.
+*      READ TABLE gi_bg_map INTO DATA(lw_bg_map) INDEX iv_read.
+      IF sy-subrc EQ 0.
+        SPLIT lw_bg_map-content AT cl_abap_char_utilities=>newline INTO TABLE DATA(li_content).
+        IF sy-subrc EQ 0 AND li_content IS NOT INITIAL.
+          LOOP AT li_content INTO DATA(lw_content).
+            lw_text = lw_content.
+            APPEND lw_text TO li_text.
+          ENDLOOP.
+          go_text->set_text_as_stream(
+            EXPORTING
+              text            =  li_text   " text as stream with carrige retruns and linefeeds
+            EXCEPTIONS
+              error_dp        = 1
+              error_dp_create = 2
+              OTHERS          = 3
+          ).
+          IF sy-subrc <> 0.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PRV_BG_INFO->INIT_MAILS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_READ                        TYPE        I
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD init_mails.
+    DATA: lw_mail TYPE zcl_prv_ole_pro=>ty_mails.
+    IF gi_mail IS INITIAL.
+      READ TABLE gi_mapping INTO DATA(lw_bg_map) INDEX iv_read.
+*      READ TABLE gi_bg_map INTO DATA(lw_bg_map) INDEX iv_read.
+      IF sy-subrc EQ 0.
+        SPLIT lw_bg_map-mails AT '|' INTO TABLE DATA(li_mails).
+        IF sy-subrc EQ 0.
+          LOOP AT li_mails INTO DATA(lw_mails).
+            lw_mail-mail_id = lw_mails.
+            APPEND lw_mails TO gi_mail.
+          ENDLOOP.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PRV_BG_INFO->INIT_MAPPING
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD init_mapping.
+    DATA: lw_mapping TYPE ty_mapping.
+    REFRESH: gi_mapping.
+    SELECT * FROM zprv_bg_map
+             INTO TABLE gi_bg_map.
+    IF sy-subrc EQ 0.
+      LOOP AT gi_bg_map INTO DATA(lw_map).
+        lw_mapping-job_name   = lw_map-jobname.
+        lw_mapping-progn      = lw_map-progn.
+        lw_mapping-variant    =  lw_map-variant.
+        lw_mapping-withcon    = lw_map-withcon.
+        lw_mapping-subject    = lw_map-subject.
+        lw_mapping-attachment = lw_map-attachment.
+        lw_mapping-mails      = lw_map-mails.
+        lw_mapping-content    = lw_map-mcontent.
+        APPEND lw_mapping TO gi_mapping.
+      ENDLOOP.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PRV_BG_INFO->INSERT_DATA
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_BUFFER                      TYPE        TYP_BUFFER
+* | [--->] IV_PAGE                        TYPE        I
+* | [--->] IV_TO                          TYPE        I(optional)
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD insert_data.
+    DATA: lv_total_fld TYPE i,
+          lv_exit      TYPE boole_d,
+          lo_wa        TYPE REF TO data,
+          lv_curr      TYPE netwr_fp,
+          lv_data      TYPE string,
+          lv_data1     TYPE string.
+    FIELD-SYMBOLS: <li> TYPE STANDARD TABLE,
+                   <lw> TYPE any.
+
+    IF iv_to NE 0.
+      lv_total_fld = lines( gi_false_fcat ).
+      ASSIGN go_dummy_table->* TO <li>.
+      IF <li> IS ASSIGNED.
+        CREATE DATA lo_wa LIKE LINE OF <li>.
+        ASSIGN lo_wa->* TO <lw>.
+        LOOP AT it_buffer INTO DATA(lw_buffer) FROM gv_value_index TO iv_to.
+          SPLIT lw_buffer AT '|' INTO TABLE DATA(li_line_data).
+          IF sy-subrc EQ 0 AND lines( li_line_data ) GE lv_total_fld.
+            DELETE li_line_data INDEX 1.
+            LOOP AT li_line_data  INTO DATA(lw_line_data).
+              DATA(lv_index) =  sy-tabix.
+              READ TABLE gi_false_fcat INTO DATA(lw_fcat) INDEX lv_index.
+              IF sy-subrc EQ 0.
+                ASSIGN COMPONENT lw_fcat-fieldname OF STRUCTURE <lw> TO FIELD-SYMBOL(<lv_val>).
+                IF <lv_val> IS ASSIGNED.
+                  lv_data = lw_line_data.
+                  lv_data1 = lw_fcat-coltext.
+                  CONDENSE: lv_data1, lv_data NO-GAPS.
+                  TRANSLATE: lv_data TO UPPER CASE,
+                             lv_data1 TO UPPER CASE.
+                  IF lv_data EQ lv_data1.
+                    EXIT.
+                    lv_exit = abap_true.
+                  ENDIF.
+                  SHIFT lw_line_data LEFT DELETING LEADING space.
+                  <lv_val> = lw_line_data.
+                ENDIF.
+              ENDIF.
+            ENDLOOP.
+            IF lv_exit EQ abap_false.
+              APPEND <lw> TO <li>.
+            ELSE.
+              lv_exit = abap_false.
+            ENDIF.
+          ENDIF.
+        ENDLOOP.
+      ENDIF.
+    ELSE.
+      lv_total_fld = lines( gi_dfcat ).
+      ASSIGN go_table->* TO <li>.
+      ASSIGN go_wa->* TO <lw>.
+      lv_exit = abap_false.
+      LOOP AT it_buffer INTO lw_buffer FROM gv_value_index.
+        SPLIT lw_buffer AT '|' INTO TABLE li_line_data.
+        IF sy-subrc EQ 0 AND lines( li_line_data ) GE lv_total_fld.
+          DELETE li_line_data INDEX 1.
+          LOOP AT li_line_data  INTO lw_line_data.
+            lv_index =  sy-tabix.
+            READ TABLE gi_dfcat INTO lw_fcat INDEX lv_index.
+            IF sy-subrc EQ 0.
+              ASSIGN COMPONENT lw_fcat-fieldname OF STRUCTURE <lw> TO <lv_val>.
+              IF <lv_val> IS ASSIGNED.
+                lv_data = lw_line_data.
+                lv_data1 = lw_fcat-coltext.
+                CONDENSE: lv_data1, lv_data NO-GAPS.
+                TRANSLATE: lv_data TO UPPER CASE,
+                           lv_data1 TO UPPER CASE.
+                IF lv_data EQ lv_data1.
+                  EXIT.
+                  lv_exit = abap_true.
+                ENDIF.
+                SHIFT lw_line_data LEFT DELETING LEADING space.
+                IF lw_fcat-rollname EQ gc_time.
+                  is_time(
+                    EXPORTING
+                      iv_value = lw_line_data
+                    IMPORTING
+                      ev_time  = DATA(lv_time)
+                      ev_true  = DATA(lv_true)
+                  ).
+                  IF lv_true EQ abap_true.
+                    <lv_val> = lv_time.
+                  ELSE.
+                    <lv_val> = lw_line_data.
+                  ENDIF.
+                ELSEIF lw_fcat-rollname EQ gc_date.
+                  is_date(
+                    EXPORTING
+                      iv_value = lw_line_data
+                    IMPORTING
+                      ev_date  =  DATA(lv_date)   " Date
+                      ev_true  = lv_true
+                  ).
+                  IF lv_true EQ abap_true.
+                    <lv_val> = lv_date.
+                  ELSE.
+                    <lv_val> = lw_line_data.
+                  ENDIF.
+                ELSEIF lw_fcat-inttype EQ 'P'.
+                  REPLACE ALL OCCURRENCES OF ',' IN lw_line_data WITH space.
+                  CONDENSE lw_line_data NO-GAPS.
+                  CLEAR: lv_curr.
+                  lv_curr = lv_curr + lw_line_data.
+                  <lv_val> = lv_curr.
+                ELSE.
+                  <lv_val> = lw_line_data.
+                ENDIF.
+              ENDIF.
+            ENDIF.
+          ENDLOOP.
+          IF lv_exit EQ abap_false.
+            APPEND <lw> TO <li>.
+          ELSE.
+            lv_exit = abap_false.
+          ENDIF.
+        ENDIF.
+      ENDLOOP.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PRV_BG_INFO->IS_CURRENCY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_VALUE                       TYPE        ANY
+* | [<---] EV_VALUE                       TYPE        BOOLE_D
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD is_currency.
+    DATA: lv_value TYPE string.
+    ev_value  = abap_false.
+    IF iv_value IS INITIAL.
+      RETURN.
+    ENDIF.
+    lv_value = iv_value.
+    SPLIT lv_value AT '.' INTO TABLE DATA(li_value).
+    IF lines( li_value ) EQ 2.
+      READ TABLE li_value INTO DATA(lw_value) INDEX 2.
+      IF sy-subrc EQ 0.
+        CONDENSE lw_value NO-GAPS.
+        IF strlen( lw_value ) EQ 2.
+          ev_value = abap_true.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PRV_BG_INFO->IS_DATE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_VALUE                       TYPE        ANY
+* | [<---] EV_DATE                        TYPE        DATUM
+* | [<---] EV_TRUE                        TYPE        BOOLE_D
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD is_date.
+    ev_true  = abap_false.
+    DATA: lv_value TYPE string.
+    lv_value = iv_value.
+    IF strlen( lv_value ) EQ 10.
+      CALL FUNCTION 'CONVERT_DATE_TO_INTERNAL'
+        EXPORTING
+          date_external            = lv_value
+*         ACCEPT_INITIAL_DATE      =
+        IMPORTING
+          date_internal            = ev_date
+        EXCEPTIONS
+          date_external_is_invalid = 1
+          OTHERS                   = 2.
+      IF sy-subrc EQ 0.
+        ev_true  = abap_true.
+      ENDIF.
+    ELSE.
+      RETURN.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PRV_BG_INFO->IS_FLOATING
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_VALUE                       TYPE        ANY
+* | [<---] EV_VALUE                       TYPE        BOOLE_D
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD is_floating.
+    DATA: lv_value TYPE string.
+    ev_value  = abap_false.
+    IF iv_value IS INITIAL.
+      RETURN.
+    ENDIF.
+    lv_value = iv_value.
+    SPLIT lv_value AT '.' INTO TABLE DATA(li_value).
+    IF lines( li_value ) EQ 2.
+      READ TABLE li_value INTO DATA(lw_value) INDEX 2.
+      IF sy-subrc EQ 0.
+        CONDENSE lw_value NO-GAPS.
+        IF strlen( lw_value ) EQ 3.
+          ev_value = abap_true.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PRV_BG_INFO->IS_INTEGER
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_VALUE                       TYPE        ANY
+* | [<---] EV_VALUE                       TYPE        BOOLE_D
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD is_integer.
+    DATA: iv_in    TYPE typint8,
+          lv_value TYPE string.
+
+    ev_value = abap_false.
+    IF iv_value IS INITIAL.
+      RETURN.
+    ENDIF.
+    lv_value = iv_value.
+    SPLIT lv_value AT '.' INTO TABLE DATA(li_value).
+    IF lines( li_value ) EQ 2.
+      RETURN.
+    ENDIF.
+    TRY .
+        iv_in = iv_value.
+        ev_value = abap_true.
+      CATCH cx_sy_conversion_no_number.
+      CATCH cx_sy_conversion_overflow.
+        ev_value = abap_true.
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_PRV_BG_INFO->IS_TIME
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_VALUE                       TYPE        ANY
+* | [<---] EV_TIME                        TYPE        SYST_UZEIT
+* | [<---] EV_TRUE                        TYPE        BOOLE_D
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD is_time.
+    ev_true  = abap_false.
+    DATA: lv_value TYPE string.
+    lv_value = iv_value.
+    IF strlen( lv_value ) EQ 10.
+      CALL FUNCTION 'CONVERT_TIME_INPUT'
+        EXPORTING
+          input                     = lv_value
+        IMPORTING
+          output                    = ev_time
+        EXCEPTIONS
+          plausibility_check_failed = 1
+          wrong_format_in_input     = 2
+          OTHERS                    = 3.
+      IF sy-subrc EQ 0.
+        ev_true  = abap_true.
+      ENDIF.
+    ELSE.
+      RETURN.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PRV_BG_INFO->MAIL_MAPPINGS
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD mail_mappings.
+    DATA: lv_user    TYPE xubname,
+          li_buffer  TYPE typ_buffer,
+          lv_spool   TYPE rspoid,
+          lo_ole     TYPE REF TO zcl_prv_ole_pro,
+          li_content TYPE zcl_prv_ole_pro=>typ_mail_content.
+
+    FIELD-SYMBOLS: <li> TYPE STANDARD TABLE.
+    IF gi_mapping IS INITIAL.
+      init_mapping( ).
+    ENDIF.
+    SORT gi_mapping BY job_name.
+    LOOP AT gi_mapping INTO DATA(lw_mapping) GROUP BY ( job_name = lw_mapping-job_name )
+                                             REFERENCE INTO DATA(lo_group).
+      READ TABLE gi_mapping INTO DATA(lw_map) WITH KEY job_name = lo_group->job_name.
+      IF sy-subrc EQ 0.
+        get_job_information(
+          EXPORTING
+            iv_job_name = lo_group->job_name    " Background job name
+            iv_date     = sy-datum    " Date
+            iv_user     = lv_user    " User Name in User Master Record
+            iv_program  = lw_mapping-progn    " ABAP Program Name
+          EXCEPTIONS
+            not_found   = 1
+            OTHERS      = 2
+        ).
+        IF sy-subrc EQ 0 AND gi_job_details IS NOT INITIAL.
+          READ TABLE gi_job_details INTO DATA(lw_job) INDEX 1.
+          IF sy-subrc EQ 0.
+            lv_spool = lw_job-listident.
+            get_spool_data(
+              EXPORTING
+                iv_spool    =  lv_spool   " Spool request number
+              IMPORTING
+                et_buffer   =  li_buffer   " Spool  Information
+                ev_page     =   DATA(lv_page)
+              EXCEPTIONS
+                spool_error = 1
+                OTHERS      = 2
+            ).
+            IF sy-subrc EQ 0 AND li_buffer IS NOT INITIAL.
+              create_table(
+                IMPORTING
+                  eo_table = go_table
+              ).
+              ASSIGN go_table->* TO <li>.
+              insert_data( it_buffer = li_buffer
+                           iv_page   = lv_page ).
+              LOOP AT gi_mapping INTO lw_mapping WHERE job_name = lo_group->job_name.
+                free_color_column( ).
+
+                lo_ole = NEW zcl_prv_ole_pro(
+                    iv_program      = lw_mapping-progn
+                    iv_job_name     = lo_group->job_name
+                ).
+
+                lo_ole->set_table(
+                  EXPORTING
+                    iv_color_field =  gc_color_col   " Field Name
+                  CHANGING
+                    ci_table       = <li>
+                  EXCEPTIONS
+                    no_color_field = 1
+                    no_data        = 2
+                    OTHERS         = 3
+                ).
+                IF sy-subrc <> 0.
+                  FREE: lo_ole.
+                ELSE.
+                  lo_ole->apply_variant( iv_vari_name = lw_mapping-variant ).
+                  init_mails( iv_read = 1 ).
+                  get_content(
+                    EXPORTING
+                      iv_read    = 1
+                    IMPORTING
+                      it_content = li_content
+                  ).
+                  lo_ole->gi_mails = gi_mail.
+                  lo_ole->gi_fcat = gi_dfcat.
+                  CONDENSE lw_mapping-attachment NO-GAPS.
+                  lo_ole->send_mail(
+                    EXPORTING
+                      iv_attachment_name = lw_mapping-attachment    " Attachement Name
+                      iv_subject         = lw_mapping-subject    " Text Field
+                      iv_send_color_cond = lw_mapping-withcon    " Send Color Condition
+                      it_mails_content   = li_content
+                    EXCEPTIONS
+                      not_id_found       = 1
+                      OTHERS             = 2
+                  ).
+                  IF sy-subrc <> 0.
+                  ENDIF.
+                  FREE: lo_ole.
+                ENDIF.
+              ENDLOOP.
+            ENDIF.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PRV_BG_INFO->UPDATE_CONTENT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_READ                        TYPE        I
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD update_content.
+    DATA: li_text TYPE STANDARD TABLE OF as4text.
+    IF go_text IS INITIAL.
+      RETURN.
+    ENDIF.
+    READ TABLE gi_mapping INTO DATA(lw_mapping) INDEX iv_read.
+    IF sy-subrc EQ 0.
+      DATA(lv_index) = sy-tabix.
+      go_text->get_text_as_stream(
+*        EXPORTING
+*          only_when_modified     = FALSE    " get text only when modified
+        IMPORTING
+          text                   =  li_text   " text as stream with carrige retruns and linefeeds
+*          is_modified            =     " modify status of text
+        EXCEPTIONS
+          error_dp               = 1
+          error_cntl_call_method = 2
+          OTHERS                 = 3
+      ).
+      IF sy-subrc EQ 0.
+        CLEAR: lw_mapping-content.
+        LOOP AT li_text INTO DATA(lw_text).
+          IF lw_mapping-content IS INITIAL.
+            lw_mapping-content = lw_text.
+          ELSE.
+            CONCATENATE lw_mapping-content lw_text INTO lw_mapping-content SEPARATED BY cl_abap_char_utilities=>newline.
+          ENDIF.
+        ENDLOOP.
+        MODIFY gi_mapping FROM lw_mapping INDEX lv_index.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PRV_BG_INFO->UPDATE_MAILS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_READ                        TYPE        I
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD update_mails.
+    IF gi_mail IS INITIAL.
+      RETURN.
+    ENDIF.
+    READ TABLE gi_mapping INTO DATA(lw_mapping) INDEX iv_read.
+    IF sy-subrc EQ 0.
+      DATA(lv_index) = sy-tabix.
+      CLEAR: lw_mapping-mails.
+      LOOP AT gi_mail INTO DATA(lw_mails).
+        IF lw_mapping-mails IS INITIAL.
+          lw_mapping-mails = lw_mails-mail_id.
+        ELSE.
+          CONCATENATE lw_mapping-mails lw_mails-mail_id INTO lw_mapping-mails
+          SEPARATED BY '|'.
+        ENDIF.
+      ENDLOOP.
+      MODIFY gi_mapping FROM lw_mapping INDEX lv_index.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PRV_BG_INFO->UPDATE_MAPPING
+* +-------------------------------------------------------------------------------------------------+
+* | [EXC!] NO_UPDATE_FOUND
+* | [EXC!] NO_MAIL_FOUND
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD update_mapping.
+    DATA: lw_map TYPE zprv_bg_map.
+    IF gi_mapping IS INITIAL.
+      RAISE no_update_found.
+    ENDIF.
+    LOOP AT gi_mapping INTO DATA(lw_mapping) WHERE mails IS INITIAL.
+      DATA(lv_index) = sy-tabix.
+      lw_mapping-mark = abap_true.
+      MODIFY gi_mapping FROM lw_mapping INDEX lv_index.
+    ENDLOOP.
+    IF lv_index NE 0.
+      RAISE no_mail_found.
+    ENDIF.
+    LOOP AT gi_mapping INTO lw_mapping.
+      CLEAR: lw_map.
+      lw_map-mandt      = sy-mandt.
+      lw_map-jobname    = lw_mapping-job_name.
+      lw_map-progn      = lw_mapping-progn.
+      lw_map-variant    = lw_mapping-variant.
+      lw_map-withcon    = lw_mapping-withcon.
+      lw_map-bname      = sy-uname.
+      lw_map-cdate      = sy-datum.
+      lw_map-mails      = lw_mapping-mails.
+      lw_map-mcontent   = lw_mapping-content.
+      lw_map-subject    = lw_mapping-subject.
+      lw_map-attachment = lw_mapping-attachment.
+      MODIFY zprv_bg_map FROM lw_map.
+    ENDLOOP.
+  ENDMETHOD.
+ENDCLASS.
